@@ -1,0 +1,91 @@
+service: hashtagmania
+
+custom:
+  snshashtagmaniabot: hashtagmaniabot
+  snsprocessfile: processfile
+  snsritekit: ritekit
+  configsavebucketname: savebucket
+
+provider:
+  name: aws
+  runtime: nodejs6.10
+
+  stage: dev
+  region: eu-west-1
+  timeout: 10
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+       - "logs:CreateLogGroup"
+       - "logs:CreateLogStream"
+       - "logs:PutLogEvents"
+      Resource: "*"
+    - Effect: "Allow"
+      Action:
+       - "lex:PostText"
+      Resource: "*"
+    - Effect: "Allow"
+      Action:
+       - "rekognition:DetectLabels"
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - "SNS:Publish"
+      Resource:
+        - { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:service}-${self:provider.stage}-${self:custom.snshashtagmaniabot}" ] ]  }
+        - { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:service}-${self:provider.stage}-${self:custom.snsprocessfile}" ] ]  }
+        - { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:service}-${self:provider.stage}-${self:custom.snsritekit}" ] ]  }
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:PutObject
+      Resource:
+        - "arn:aws:s3:::${self:service}-${self:provider.stage}-${self:custom.configsavebucketname}/*"
+
+functions:
+  mainhandler:
+    handler: handler.mainhandler
+    memorySize: 128
+    environment:
+     BOT_NAME: HastagManiaBot
+     BOT_ALIAS: Beta
+     API_GATEWAY_URL: https://api.telegram.org/bot${file(./serverless.env.yml):dev.TELEGRAM_API}/
+     TELEGRAM_API: ${file(./serverless.env.yml):dev.TELEGRAM_API}
+     MY_AWS_REGION: ${self:provider.region}
+     SNS_TOPIC_LEX: { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:service}-${self:provider.stage}-${self:custom.snshashtagmaniabot}" ] ]  }
+     SNS_TOPIC_FILE: { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:service}-${self:provider.stage}-${self:custom.snsprocessfile}" ] ]  }
+    events:
+     - http:
+        path: telegram/sendmessage
+        method: post
+        integration: lambda
+        request:
+          template:
+            application/json: '{"body": $input.json("$")}'
+  processfile: # Lambada function for text extraction using AMAZON Rekognition Service
+    handler: handler-processfile.main
+    environment:
+     BOT_NAME: HastagManiaBot
+     BOT_ALIAS: Beta
+     API_GATEWAY_URL: https://api.telegram.org/bot${file(./serverless.env.yml):dev.TELEGRAM_API}/
+     API_FILE_GATEWAY_URL: https://api.telegram.org/file/bot${file(./serverless.env.yml):dev.TELEGRAM_API}/
+     TELEGRAM_API: ${file(./serverless.env.yml):dev.TELEGRAM_API}
+     MY_AWS_REGION: ${self:provider.region}
+     SAVE_BUCKET: ${self:service}-${self:provider.stage}-${self:custom.configsavebucketname}
+     SNS_TOPIC_LEX: { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:service}-${self:provider.stage}-${self:custom.snshashtagmaniabot}" ] ]  }
+     SNS_RITEKIT: { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:service}-${self:provider.stage}-${self:custom.snsritekit}" ] ]  }
+    events:
+     - sns: ${self:service}-${self:provider.stage}-${self:custom.snsprocessfile}
+  ritekit: # Lambada function for tags information from RiteKite API
+    handler: handler-ritekit.main
+    environment:
+     BOT_NAME: HastagManiaBot
+     BOT_ALIAS: Beta
+     API_GATEWAY_URL: https://api.telegram.org/bot${file(./serverless.env.yml):dev.TELEGRAM_API}/
+     TELEGRAM_API: ${file(./serverless.env.yml):dev.TELEGRAM_API}
+     MY_AWS_REGION: ${self:provider.region}
+     SNS_TOPIC_LEX: { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:service}-${self:provider.stage}-${self:custom.snshashtagmaniabot}" ] ]  }
+     API_RITEKIT_URL: https://api.ritekit.com/v1/stats/
+     RITEKIT_API: ${file(./serverless.env.yml):dev.RITEKIT_API}
+    events:
+     - sns: ${self:service}-${self:provider.stage}-${self:custom.snsritekit}

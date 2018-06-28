@@ -1,0 +1,32 @@
+{
+  "name": "hashtagmania",
+  "version": "1.0.0",
+  "description": "Example using Amazon rekognition to generate hashtags",
+  "main": "handler.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/onnobos/hashtagmania.git"
+  },
+  "keywords": [
+    "aws",
+    "rekognition",
+    "ritekit",
+    "api",
+    "serverless"
+  ],
+  "author": "Onno Bos",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/onnobos/hashtagmania/issues"
+  },
+  "homepage": "https://github.com/onnobos/hashtagmania#readme",
+  "dependencies": {
+    "array-sort": "^1.0.0",
+    "moment": "^2.22.2",
+    "request": "^2.87.0",
+    "request-promise": "^4.2.2"
+  }
+}
